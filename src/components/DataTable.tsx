@@ -175,9 +175,9 @@ const DataTable: React.FC<DataTableProps> = ({
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.fullName}</TableCell>
                     <TableCell>{item.cpf}</TableCell>
-                    {type === 'patients' ? (
+                     {type === 'patients' ? (
                       <>
-                        <TableCell>{calculateAge(item.birthDate)} anos</TableCell>
+                        <TableCell>{(item as Patient).age || calculateAge(item.birthDate)} anos</TableCell>
                         <TableCell>{(item as Patient).phone1}</TableCell>
                         <TableCell>{formatDate(item.birthDate)}</TableCell>
                       </>
@@ -187,6 +187,7 @@ const DataTable: React.FC<DataTableProps> = ({
                         <TableCell>{(item as Professional).phone}</TableCell>
                         <TableCell>
                           <Badge 
+                            variant={(item as Professional).approved ? "default" : "secondary"}
                             className={
                               (item as Professional).approved 
                                 ? 'bg-green-100 text-green-800' 

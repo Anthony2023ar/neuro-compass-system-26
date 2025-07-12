@@ -23,15 +23,19 @@ import { useNotification } from '@/hooks/useNotification';
 import DataTable from '@/components/DataTable';
 import PatientSearch from '@/components/PatientSearch';
 import PatientEditForm from '@/components/PatientEditForm';
+import ProfessionalEditForm from '@/components/ProfessionalEditForm';
+import DataImportExport from '@/components/DataImportExport';
 
 const DatabasePage = () => {
   const navigate = useNavigate();
   const { showSuccess, showError, showInfo } = useNotification();
-  const { patients, loading: patientsLoading, loadPatients } = usePatients();
-  const { professionals, loading: professionalsLoading, loadProfessionals } = useProfessionals();
+  const { patients, loading: patientsLoading, loadPatients, removePatient } = usePatients();
+  const { professionals, loading: professionalsLoading, loadProfessionals, removeProfessional } = useProfessionals();
   
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isProfessionalEditModalOpen, setIsProfessionalEditModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('patients');
 
   useEffect(() => {
@@ -61,26 +65,21 @@ const DatabasePage = () => {
     setIsEditModalOpen(true);
   };
 
-  const handleDeletePatient = (id: string) => {
+  const handleDeletePatient = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir este paciente?')) {
-      const updatedPatients = patients.filter(p => p.id !== id);
-      localStorage.setItem('patients', JSON.stringify(updatedPatients));
-      loadPatients();
-      showSuccess('Paciente excluído com sucesso');
+      await removePatient(id);
     }
   };
 
-  const handleDeleteProfessional = (id: string) => {
+  const handleDeleteProfessional = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir este profissional?')) {
-      const updatedProfessionals = professionals.filter(p => p.id !== id);
-      localStorage.setItem('professionals', JSON.stringify(updatedProfessionals));
-      loadProfessionals();
-      showSuccess('Profissional excluído com sucesso');
+      await removeProfessional(id);
     }
   };
 
   const handleEditProfessional = (professional: Professional) => {
-    showInfo(`Edição de ${professional.fullName} - Funcionalidade em desenvolvimento`);
+    setSelectedProfessional(professional);
+    setIsProfessionalEditModalOpen(true);
   };
 
   const handleExportPatients = () => {
@@ -119,6 +118,33 @@ const DatabasePage = () => {
   const handleCloseEditModal = () => {
     setIsEditModalOpen(false);
     setSelectedPatient(null);
+  };
+
+  const handleSaveProfessional = (updatedProfessional: Professional) => {
+    loadProfessionals();
+    setIsProfessionalEditModalOpen(false);
+    setSelectedProfessional(null);
+  };
+
+  const handleCloseProfessionalEditModal = () => {
+    setIsProfessionalEditModalOpen(false);
+    setSelectedProfessional(null);
+  };
+
+  const handleImportPatients = (importedData: any[]) => {
+    // Salvar dados importados no localStorage
+    const existingPatients = JSON.parse(localStorage.getItem('patients') || '[]');
+    const allPatients = [...existingPatients, ...importedData];
+    localStorage.setItem('patients', JSON.stringify(allPatients));
+    loadPatients();
+  };
+
+  const handleImportProfessionals = (importedData: any[]) => {
+    // Salvar dados importados no localStorage
+    const existingProfessionals = JSON.parse(localStorage.getItem('professionals') || '[]');
+    const allProfessionals = [...existingProfessionals, ...importedData];
+    localStorage.setItem('professionals', JSON.stringify(allProfessionals));
+    loadProfessionals();
   };
 
   return (
@@ -244,15 +270,31 @@ const DatabasePage = () => {
               onAdd={() => navigate('/patient-register')}
               onExport={handleExportPatients}
             />
+
+            {/* Importação/Exportação de Pacientes */}
+            <DataImportExport
+              type="patients"
+              data={patients}
+              onImport={handleImportPatients}
+              onExport={handleExportPatients}
+            />
           </TabsContent>
 
-          <TabsContent value="professionals">
+          <TabsContent value="professionals" className="space-y-6">
             <DataTable
               type="professionals"
               data={professionals}
               onEdit={handleEditProfessional}
               onDelete={handleDeleteProfessional}
               onAdd={() => navigate('/professional-register')}
+              onExport={handleExportProfessionals}
+            />
+
+            {/* Importação/Exportação de Profissionais */}
+            <DataImportExport
+              type="professionals"
+              data={professionals}
+              onImport={handleImportProfessionals}
               onExport={handleExportProfessionals}
             />
           </TabsContent>
@@ -270,6 +312,22 @@ const DatabasePage = () => {
               patient={selectedPatient}
               onSave={handleSavePatient}
               onClose={handleCloseEditModal}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Edição de Profissional */}
+      <Dialog open={isProfessionalEditModalOpen} onOpenChange={setIsProfessionalEditModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Profissional</DialogTitle>
+          </DialogHeader>
+          {selectedProfessional && (
+            <ProfessionalEditForm
+              professional={selectedProfessional}
+              onSave={handleSaveProfessional}
+              onClose={handleCloseProfessionalEditModal}
             />
           )}
         </DialogContent>
