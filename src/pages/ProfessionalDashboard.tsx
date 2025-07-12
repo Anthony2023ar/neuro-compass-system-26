@@ -248,6 +248,27 @@ const ProfessionalDashboard = () => {
   };
 
   const handleLogout = () => {
+    // SEGURANÇA: Limpar dados temporários do profissional
+    setSelectedPatient(null);
+    setPatientData({
+      fullName: '',
+      cpf: '',
+      birthDate: '',
+      age: 0,
+      fatherName: '',
+      motherName: '',
+      phone1: '',
+      phone2: '',
+      nextVisitDate: '',
+      nextVisitTime: '',
+      medicalReports: '',
+      vaccines: '',
+      activities: '',
+      photos: '',
+      sessionsDescription: '',
+      treatmentTypes: []
+    });
+    setSearchTerm('');
     navigate('/');
   };
 

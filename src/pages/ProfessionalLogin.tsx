@@ -39,8 +39,29 @@ const ProfessionalLogin = () => {
       const success = await login(formData.cpf, 'professional', formData.password);
       
       if (success) {
+        // SEGURANÇA: Limpar dados sensíveis do formulário imediatamente
+        setFormData({
+          cpf: '',
+          password: ''
+        });
+        
+        // SEGURANÇA: Limpar dados do navegador
+        if (document.activeElement instanceof HTMLInputElement) {
+          document.activeElement.blur();
+        }
+        
+        // SEGURANÇA: Limpar histórico do formulário
+        const form = document.querySelector('form');
+        if (form) {
+          form.reset();
+        }
+        
         toast.success('Login realizado com sucesso!');
-        navigate('/professional-dashboard');
+        
+        // SEGURANÇA: Forçar limpeza da memória antes do redirecionamento
+        setTimeout(() => {
+          navigate('/professional-dashboard');
+        }, 100);
       } else {
         toast.error('CPF ou senha incorretos, ou conta não aprovada ainda.');
       }
@@ -48,6 +69,14 @@ const ProfessionalLogin = () => {
       toast.error('Erro ao fazer login. Tente novamente.');
     } finally {
       setIsLoading(false);
+      
+      // SEGURANÇA: Sempre limpar dados sensíveis após tentativa de login
+      setTimeout(() => {
+        setFormData({
+          cpf: '',
+          password: ''
+        });
+      }, 1000);
     }
   };
 

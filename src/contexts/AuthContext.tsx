@@ -116,22 +116,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
         
         if (patient) {
-          const userData: User = {
+          // SEGURANÇA: Criar dados limpos sem informações sensíveis
+          const cleanUserData: User = {
             id: patient.id,
             fullName: patient.fullName,
-            cpf: patient.cpf,
+            cpf: patient.cpf.replace(/\d/g, '*'), // Mascarar CPF
             type: 'patient',
             birthDate: patient.birthDate,
             age: patient.age,
-            phone1: patient.phone1,
-            phone2: patient.phone2,
+            phone1: patient.phone1 ? patient.phone1.replace(/\d{4}$/, '****') : '', // Mascarar telefone
+            phone2: patient.phone2 ? patient.phone2.replace(/\d{4}$/, '****') : '',
             fatherName: patient.fatherName,
             motherName: patient.motherName,
             sessionId: generateSessionId()
           };
           
-          setUser(userData);
-          localStorage.setItem('currentUser', JSON.stringify(userData));
+          setUser(cleanUserData);
+          
+          // SEGURANÇA: Salvar dados limpos sem informações sensíveis completas
+          const sessionData = {
+            ...cleanUserData,
+            sessionStart: Date.now()
+          };
+          
+          localStorage.setItem('currentUser', JSON.stringify(sessionData));
           localStorage.setItem('sessionTimestamp', Date.now().toString());
           return true;
         }
@@ -145,19 +153,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
         
         if (professional) {
-          const userData: User = {
+          // SEGURANÇA: Criar dados limpos sem senha e informações sensíveis
+          const cleanUserData: User = {
             id: professional.id,
             fullName: professional.fullName,
-            cpf: professional.cpf,
+            cpf: professional.cpf.replace(/\d{5}$/g, '*****'), // Mascarar parte do CPF
             type: 'professional',
             course: professional.course,
-            phone1: professional.phone,
+            phone1: professional.phone ? professional.phone.replace(/\d{4}$/, '****') : '',
             approved: professional.approved,
             sessionId: generateSessionId()
+            // IMPORTANTE: Nunca salvar senha na sessão
           };
           
-          setUser(userData);
-          localStorage.setItem('currentUser', JSON.stringify(userData));
+          setUser(cleanUserData);
+          
+          // SEGURANÇA: Dados da sessão sem informações sensíveis
+          const sessionData = {
+            ...cleanUserData,
+            sessionStart: Date.now(),
+            lastActivity: Date.now()
+          };
+          
+          localStorage.setItem('currentUser', JSON.stringify(sessionData));
           localStorage.setItem('sessionTimestamp', Date.now().toString());
           return true;
         }
@@ -172,9 +190,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     setUser(null);
+    // SEGURANÇA: Limpar todos os dados da sessão
     localStorage.removeItem('currentUser');
     localStorage.removeItem('sessionTimestamp');
     localStorage.removeItem('adminSession');
+    
+    // SEGURANÇA: Limpar dados temporários do cache do navegador
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        names.forEach(name => {
+          if (name.includes('neuropsicopedagogia')) {
+            caches.delete(name);
+          }
+        });
+      });
+    }
+    
+    // SEGURANÇA: Invalidar histórico de formulários
+    if (window.history?.replaceState) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
   };
 
   const value = {

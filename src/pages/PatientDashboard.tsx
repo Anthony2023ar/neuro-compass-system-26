@@ -1,9 +1,10 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Brain, 
   User, 
@@ -18,16 +19,42 @@ import {
   Heart,
   Activity,
   Puzzle,
-  Gamepad2
+  Gamepad2,
+  AlertCircle
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { getPatientById } from '@/services/localStorage';
+import type { Patient } from '@/types/patient';
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [patientData, setPatientData] = useState<Patient | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Dados fictícios para demonstração - em uma aplicação real, viriam de uma API
-  const nextVisit = {
+  useEffect(() => {
+    const loadPatientData = async () => {
+      if (user?.id) {
+        setLoading(true);
+        try {
+          // Buscar dados completos do paciente
+          const fullPatientData = getPatientById(user.id);
+          if (fullPatientData) {
+            setPatientData(fullPatientData);
+          }
+        } catch (error) {
+          console.error('Erro ao carregar dados do paciente:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadPatientData();
+  }, [user?.id]);
+
+  // Dados fictícios para demonstração - serão substituídos pelos dados reais
+  const nextVisit = patientData?.nextVisit || {
     date: "2024-01-15",
     time: "14:30"
   };
@@ -45,12 +72,25 @@ const PatientDashboard = () => {
   ];
 
   const handleLogout = () => {
+    // SEGURANÇA: Limpar dados do paciente da memória
+    setPatientData(null);
     logout();
     navigate('/');
   };
 
   if (!user) {
     return null; // Será redirecionado pela ProtectedRoute
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando dados do paciente...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -76,10 +116,8 @@ const PatientDashboard = () => {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
-          
-          {/* Dados Cadastrais */}
+      <div className="container mx-auto px-4 py-8">{patientData ? (
+        <div className="grid lg:grid-cols-3 gap-8">{/* Dados Cadastrais */}
           <Card className="lg:col-span-1 shadow-lg border-0 bg-white/90 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -90,40 +128,36 @@ const PatientDashboard = () => {
             <CardContent className="space-y-4">
               <div>
                 <p className="text-sm font-medium text-gray-600">Nome Completo</p>
-                <p className="text-gray-800">{user.fullName}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">CPF</p>
-                <p className="text-gray-800">{user.cpf}</p>
+                <p className="text-gray-800">{patientData.fullName}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-600">Idade</p>
-                <p className="text-gray-800">{user.age} anos</p>
+                <p className="text-gray-800">{patientData.age} anos</p>
               </div>
-              {user.fatherName && (
+              {patientData.fatherName && (
                 <div>
                   <p className="text-sm font-medium text-gray-600">Nome do Pai</p>
-                  <p className="text-gray-800">{user.fatherName}</p>
+                  <p className="text-gray-800">{patientData.fatherName}</p>
                 </div>
               )}
-              {user.motherName && (
+              {patientData.motherName && (
                 <div>
                   <p className="text-sm font-medium text-gray-600">Nome da Mãe</p>
-                  <p className="text-gray-800">{user.motherName}</p>
+                  <p className="text-gray-800">{patientData.motherName}</p>
                 </div>
               )}
               <div>
                 <p className="text-sm font-medium text-gray-600">Telefones</p>
-                {user.phone1 && (
+                {patientData.phone1 && (
                   <div className="flex items-center gap-2 text-gray-800">
                     <Phone className="h-4 w-4" />
-                    <span>{user.phone1}</span>
+                    <span>{patientData.phone1}</span>
                   </div>
                 )}
-                {user.phone2 && (
+                {patientData.phone2 && (
                   <div className="flex items-center gap-2 text-gray-800">
                     <Phone className="h-4 w-4" />
-                    <span>{user.phone2}</span>
+                    <span>{patientData.phone2}</span>
                   </div>
                 )}
               </div>
@@ -142,16 +176,25 @@ const PatientDashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-600" />
-                    <span className="font-medium">{new Date(nextVisit.date).toLocaleDateString('pt-BR')}</span>
+                {nextVisit.date ? (
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-gray-600" />
+                      <span className="font-medium">{new Date(nextVisit.date).toLocaleDateString('pt-BR')}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-gray-600" />
+                      <span className="font-medium">{nextVisit.time}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-gray-600" />
-                    <span className="font-medium">{nextVisit.time}</span>
-                  </div>
-                </div>
+                ) : (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Nenhuma consulta agendada. Entre em contato com seu neuropsicopedagogo.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </CardContent>
             </Card>
 
@@ -167,7 +210,19 @@ const PatientDashboard = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600">Nenhum laudo cadastrado</p>
+                  {patientData.medicalReports && patientData.medicalReports.length > 0 ? (
+                    <div className="space-y-2">
+                      {patientData.medicalReports.map((report, index) => (
+                        <div key={index} className="p-3 bg-orange-50 rounded-lg">
+                          <p className="font-medium text-orange-800">{report.title}</p>
+                          <p className="text-sm text-orange-700">{report.description}</p>
+                          <p className="text-xs text-orange-600">{report.date}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-600">Nenhum laudo cadastrado</p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -180,7 +235,18 @@ const PatientDashboard = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600">Nenhuma vacina registrada</p>
+                  {patientData.vaccines && patientData.vaccines.length > 0 ? (
+                    <div className="space-y-2">
+                      {patientData.vaccines.map((vaccine, index) => (
+                        <div key={index} className="flex justify-between items-center p-2 bg-red-50 rounded">
+                          <span className="font-medium text-red-800">{vaccine.name}</span>
+                          <span className="text-sm text-red-600">{vaccine.date}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-600">Nenhuma vacina registrada</p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -193,7 +259,24 @@ const PatientDashboard = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600">Nenhuma atividade registrada</p>
+                  {patientData.activities && patientData.activities.length > 0 ? (
+                    <div className="space-y-2">
+                      {patientData.activities.map((activity, index) => (
+                        <div key={index} className="p-3 bg-purple-50 rounded-lg">
+                          <p className="font-medium text-purple-800">{activity.title}</p>
+                          <p className="text-sm text-purple-700">{activity.description}</p>
+                          <div className="flex justify-between items-center mt-2">
+                            <span className="text-xs text-purple-600">{activity.date}</span>
+                            <Badge variant={activity.completed ? "default" : "secondary"}>
+                              {activity.completed ? 'Concluída' : 'Em andamento'}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-600">Nenhuma atividade registrada</p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -206,7 +289,19 @@ const PatientDashboard = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600">Nenhuma foto cadastrada</p>
+                  {patientData.photos && patientData.photos.length > 0 ? (
+                    <div className="space-y-2">
+                      {patientData.photos.map((photo, index) => (
+                        <div key={index} className="p-3 bg-indigo-50 rounded-lg">
+                          <p className="font-medium text-indigo-800">{photo.title}</p>
+                          <p className="text-sm text-indigo-700">{photo.description}</p>
+                          <p className="text-xs text-indigo-600">{photo.date}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-600">Nenhuma foto cadastrada</p>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -220,7 +315,33 @@ const PatientDashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600 mb-4">Nenhuma sessão registrada ainda</p>
+                {patientData.sessions && patientData.sessions.length > 0 ? (
+                  <div className="space-y-3">
+                    {patientData.sessions.map((session, index) => (
+                      <div key={index} className="p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="font-medium text-blue-800">{session.date}</span>
+                          <Badge variant="outline" className="text-blue-700">
+                            {session.duration} min
+                          </Badge>
+                        </div>
+                        <p className="text-blue-700 mb-2">{session.description}</p>
+                        {session.activities && session.activities.length > 0 && (
+                          <div className="text-sm text-blue-600">
+                            <strong>Atividades:</strong> {session.activities.join(', ')}
+                          </div>
+                        )}
+                        {session.observations && (
+                          <p className="text-sm text-blue-600 mt-1">
+                            <strong>Observações:</strong> {session.observations}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-600 mb-4">Nenhuma sessão registrada ainda</p>
+                )}
               </CardContent>
             </Card>
 
@@ -251,6 +372,14 @@ const PatientDashboard = () => {
             </Card>
           </div>
         </div>
+      ) : (
+        <Alert className="max-w-2xl mx-auto">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Não foi possível carregar os dados completos do paciente. Alguns dados podem estar limitados por segurança.
+          </AlertDescription>
+        </Alert>
+      )}
       </div>
     </div>
   );

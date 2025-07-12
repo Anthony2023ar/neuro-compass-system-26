@@ -41,19 +41,60 @@ const ProfessionalApprovalPage = () => {
   };
 
   const handleApprove = (id: string) => {
+    // SEGURANÇA: Validar permissões antes de aprovar
+    const adminSession = localStorage.getItem('adminSession');
+    if (adminSession !== 'true') {
+      toast.error('Acesso negado: apenas administradores podem aprovar profissionais');
+      navigate('/admin-login');
+      return;
+    }
+
     const updatedProfessional = updateProfessional(id, { approved: true });
     if (updatedProfessional) {
       setProfessionals(prev => 
         prev.map(p => p.id === id ? updatedProfessional : p)
       );
+      toast.success(`${updatedProfessional.fullName} foi aprovado com sucesso!`);
+    } else {
+      toast.error('Erro ao aprovar profissional');
     }
   };
 
   const handleReject = (id: string) => {
-    // Remover profissional negado do sistema
-    const updatedProfessionals = professionals.filter(p => p.id !== id);
-    setProfessionals(updatedProfessionals);
-    localStorage.setItem('professionals', JSON.stringify(updatedProfessionals));
+    // SEGURANÇA: Validar permissões antes de rejeitar
+    const adminSession = localStorage.getItem('adminSession');
+    if (adminSession !== 'true') {
+      toast.error('Acesso negado: apenas administradores podem rejeitar profissionais');
+      navigate('/admin-login');
+      return;
+    }
+
+    // Confirmar rejeição com motivo
+    const reason = window.prompt('Digite o motivo da rejeição (opcional):');
+    if (reason === null) return; // Usuário cancelou
+
+    const professional = professionals.find(p => p.id === id);
+    if (professional) {
+      // Salvar log de rejeição para auditoria
+      const rejectionLog = {
+        professionalId: id,
+        professionalName: professional.fullName,
+        rejectedAt: new Date().toISOString(),
+        reason: reason || 'Não especificado',
+        rejectedBy: 'admin'
+      };
+      
+      const existingLogs = JSON.parse(localStorage.getItem('rejectionLogs') || '[]');
+      existingLogs.push(rejectionLog);
+      localStorage.setItem('rejectionLogs', JSON.stringify(existingLogs));
+      
+      // Remover profissional negado do sistema
+      const updatedProfessionals = professionals.filter(p => p.id !== id);
+      setProfessionals(updatedProfessionals);
+      localStorage.setItem('professionals', JSON.stringify(updatedProfessionals));
+      
+      toast.success(`${professional.fullName} foi rejeitado. Motivo: ${reason || 'Não especificado'}`);
+    }
   };
 
   if (isLoading) {
