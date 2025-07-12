@@ -106,15 +106,14 @@ const AdminLogin = () => {
                   className="h-12 border-2 border-gray-200 focus:border-red-400 transition-colors"
                 />
               </div>
-
               <div className="bg-red-50 p-4 rounded-lg">
-                <p className="text-sm text-red-800 mb-2">
-                  <strong>Credenciais administrativas:</strong>
-                </p>
-                <p className="text-sm text-red-700">
-                  Usuário: <code>irisaves</code> | Senha: <code>iris123Aa</code>
+                <p className="text-sm text-red-800">
+                  <strong>⚠️ Área Administrativa</strong><br />
+                  Acesso exclusivo para administradores autorizados.
                 </p>
               </div>
+
+              
 
               <Button 
                 type="submit" 

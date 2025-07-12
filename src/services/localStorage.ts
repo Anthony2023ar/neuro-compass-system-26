@@ -244,35 +244,19 @@ const generateId = (): string => {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 };
 
-// Função para inicializar dados de exemplo (apenas para desenvolvimento)
+// Função para inicializar estrutura básica do sistema
 export const initializeSampleData = (): void => {
-  if (getPatients().length === 0) {
-    const samplePatient = {
-      fullName: "Maria Silva Santos",
-      birthDate: "1985-03-15",
-      age: calculateAge("1985-03-15"),
-      cpf: "123.456.789-00",
-      fatherName: "João Santos",
-      motherName: "Ana Silva",
-      phone1: "(11) 99999-9999",
-      phone2: "(11) 88888-8888"
-    };
-    
-    savePatient(samplePatient);
+  // Inicializar apenas estruturas vazias se não existirem
+  if (!localStorage.getItem('patients')) {
+    localStorage.setItem('patients', JSON.stringify([]));
   }
   
-  if (getProfessionals().length === 0) {
-    const sampleProfessional = {
-      fullName: "Dr. Carlos Oliveira",
-      cpf: "987.654.321-00",
-      birthDate: "1980-01-01",
-      course: "Pós-graduação em Neuropsicopedagogia",
-      phone: "(11) 77777-7777",
-      password: "123456"
-    };
-    
-    const professional = saveProfessional(sampleProfessional);
-    updateProfessional(professional.id, { approved: true }); // Aprovar automaticamente para testes
+  if (!localStorage.getItem('professionals')) {
+    localStorage.setItem('professionals', JSON.stringify([]));
+  }
+  
+  if (!localStorage.getItem('rejectionLogs')) {
+    localStorage.setItem('rejectionLogs', JSON.stringify([]));
   }
 };
 

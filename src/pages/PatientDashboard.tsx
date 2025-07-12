@@ -53,11 +53,8 @@ const PatientDashboard = () => {
     loadPatientData();
   }, [user?.id]);
 
-  // Dados fictícios para demonstração - serão substituídos pelos dados reais
-  const nextVisit = patientData?.nextVisit || {
-    date: "2024-01-15",
-    time: "14:30"
-  };
+  // Dados padrão quando não há dados específicos
+  const nextVisit = patientData?.nextVisit;
 
   const treatmentTypes = [
     "Avaliação Neuropsicopedagógica",
@@ -176,7 +173,7 @@ const PatientDashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {nextVisit.date ? (
+                {nextVisit?.date ? (
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-gray-600" />

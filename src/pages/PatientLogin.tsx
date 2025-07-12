@@ -93,15 +93,14 @@ const PatientLogin = () => {
                   className="h-12 border-2 border-gray-200 focus:border-blue-400 transition-colors"
                 />
               </div>
-
               <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-sm text-blue-800 mb-2">
-                  <strong>Dados de teste disponíveis:</strong>
-                </p>
-                <p className="text-sm text-blue-700">
-                  CPF: <code>123.456.789-00</code> ou Nome: <code>Maria Silva Santos</code>
+                <p className="text-sm text-blue-800">
+                  <strong>💡 Primeira vez aqui?</strong><br />
+                  Use seu CPF ou nome completo cadastrado no sistema. Se não possui cadastro, registre-se primeiro.
                 </p>
               </div>
+
+              
 
               <Button 
                 type="submit" 

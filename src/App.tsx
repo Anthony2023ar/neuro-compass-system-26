@@ -22,7 +22,7 @@ import { initializeSampleData } from "@/services/localStorage";
 
 const queryClient = new QueryClient();
 
-// Inicializar dados de exemplo
+// Inicializar estrutura básica do sistema
 initializeSampleData();
 
 const App = () => (

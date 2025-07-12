@@ -136,14 +136,13 @@ const ProfessionalLogin = () => {
               </div>
 
               <div className="bg-purple-50 p-4 rounded-lg">
-                <p className="text-sm text-purple-800 mb-2">
-                  <strong>Dados de teste disponíveis:</strong>
-                </p>
-                <p className="text-sm text-purple-700">
-                  CPF: <code>987.654.321-00</code> | Senha: <code>123456</code>
+                <p className="text-sm text-purple-800">
+                  <strong>🔐 Acesso Restrito</strong><br />
+                  Apenas profissionais aprovados podem acessar. Use seu CPF e senha cadastrados.
                 </p>
               </div>
 
+              
               <Button 
                 type="submit" 
                 className="w-full h-12 text-lg bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300"

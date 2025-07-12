@@ -311,9 +311,9 @@ const AdminDashboard = () => {
                 </div>
 
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Credenciais Admin</p>
-                  <p className="text-xs text-gray-600">Usuário: <code>irisaves</code></p>
-                  <p className="text-xs text-gray-600">Senha: <code>iris123Aa</code></p>
+                  <p className="text-sm text-gray-600">
+                    Administrador responsável pela gestão do sistema de neuropsicopedagogia.
+                  </p>
                 </div>
               </div>
             </CardContent>
