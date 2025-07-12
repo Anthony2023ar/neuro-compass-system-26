@@ -20,15 +20,20 @@ import {
   Activity,
   Puzzle,
   Gamepad2,
-  AlertCircle
+  AlertCircle,
+  Trash2,
+  Edit,
+  Plus
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getPatientById } from '@/services/localStorage';
-import type { Patient } from '@/types/patient';
+import { getPatientById, updatePatient } from '@/services/localStorage';
+import type { Patient, Photo } from '@/types/patient';
+import { useToast } from '@/hooks/use-toast';
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { toast } = useToast();
   const [patientData, setPatientData] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -67,6 +72,56 @@ const PatientDashboard = () => {
     "Atividades Lúdicas de Desenvolvimento",
     "Sessões com recursos visuais e gamificação"
   ];
+
+  // Contar tipos de atendimento realizados
+  const getTreatmentCounts = () => {
+    if (!patientData?.sessions) return {};
+    
+    const counts: { [key: string]: number } = {};
+    treatmentTypes.forEach(type => counts[type] = 0);
+    
+    patientData.sessions.forEach(session => {
+      if (session.activities) {
+        session.activities.forEach(activity => {
+          const matchedType = treatmentTypes.find(type => 
+            activity.toLowerCase().includes(type.toLowerCase()) ||
+            type.toLowerCase().includes(activity.toLowerCase())
+          );
+          if (matchedType) {
+            counts[matchedType]++;
+          }
+        });
+      }
+    });
+    
+    return counts;
+  };
+
+  const treatmentCounts = getTreatmentCounts();
+
+  // Função para deletar foto definitivamente
+  const deletePhoto = async (photoId: string) => {
+    if (!patientData || !user?.id) return;
+    
+    try {
+      const updatedPhotos = patientData.photos?.filter(p => p.id !== photoId) || [];
+      const updatedPatient = await updatePatient(user.id, { photos: updatedPhotos });
+      
+      if (updatedPatient) {
+        setPatientData(updatedPatient);
+        toast({
+          title: "Foto removida",
+          description: "A foto foi deletada definitivamente do sistema.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível deletar a foto.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleLogout = () => {
     // SEGURANÇA: Limpar dados do paciente da memória
@@ -280,24 +335,60 @@ const PatientDashboard = () => {
               {/* Fotos dos Avanços */}
               <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Camera className="h-5 w-5 text-indigo-600" />
-                    Fotos dos Avanços
+                  <CardTitle className="flex items-center justify-between text-lg">
+                    <div className="flex items-center gap-2">
+                      <Camera className="h-5 w-5 text-indigo-600" />
+                      Fotos dos Avanços
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      {patientData.photos?.length || 0} foto(s)
+                    </Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {patientData.photos && patientData.photos.length > 0 ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {patientData.photos.map((photo, index) => (
-                        <div key={index} className="p-3 bg-indigo-50 rounded-lg">
-                          <p className="font-medium text-indigo-800">{photo.title}</p>
-                          <p className="text-sm text-indigo-700">{photo.description}</p>
-                          <p className="text-xs text-indigo-600">{photo.date}</p>
+                        <div key={photo.id || index} className="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                          <div className="flex justify-between items-start mb-2">
+                            <p className="font-medium text-indigo-800">{photo.title}</p>
+                            <div className="flex gap-1">
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-6 w-6 p-0 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100"
+                                onClick={() => {/* Editar foto */}}
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-6 w-6 p-0 text-red-600 hover:text-red-800 hover:bg-red-100"
+                                onClick={() => deletePhoto(photo.id)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          <p className="text-sm text-indigo-700 mb-1">{photo.description}</p>
+                          <div className="flex justify-between items-center">
+                            <p className="text-xs text-indigo-600">{new Date(photo.date).toLocaleDateString('pt-BR')}</p>
+                            {photo.url && (
+                              <Badge variant="outline" className="text-xs text-indigo-700">
+                                Arquivo disponível
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-600">Nenhuma foto cadastrada</p>
+                    <div className="text-center py-6">
+                      <Camera className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                      <p className="text-gray-600 mb-2">Nenhuma foto cadastrada</p>
+                      <p className="text-sm text-gray-500">As fotos dos avanços serão adicionadas pelo profissional</p>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -345,26 +436,50 @@ const PatientDashboard = () => {
             {/* Tipos de Atendimento */}
             <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Puzzle className="h-5 w-5 text-teal-600" />
-                  Tipos de Atendimento Disponíveis
+                <CardTitle className="flex items-center justify-between text-lg">
+                  <div className="flex items-center gap-2">
+                    <Puzzle className="h-5 w-5 text-teal-600" />
+                    Tipos de Atendimento Disponíveis
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {Object.values(treatmentCounts).reduce((a, b) => a + b, 0)} sessões realizadas
+                  </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid sm:grid-cols-2 gap-2">
-                  {treatmentTypes.map((type, index) => (
-                    <Badge 
-                      key={index} 
-                      variant="secondary" 
-                      className="justify-start p-2 text-sm bg-gradient-to-r from-blue-50 to-purple-50 text-gray-700 border border-blue-200"
-                    >
-                      {index < 4 && <Heart className="mr-2 h-3 w-3" />}
-                      {index >= 4 && index < 7 && <Activity className="mr-2 h-3 w-3" />}
-                      {index >= 7 && <Gamepad2 className="mr-2 h-3 w-3" />}
-                      {type}
-                    </Badge>
-                  ))}
+                <div className="grid sm:grid-cols-1 gap-3">
+                  {treatmentTypes.map((type, index) => {
+                    const count = treatmentCounts[type] || 0;
+                    return (
+                      <div 
+                        key={index} 
+                        className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          {index < 4 && <Heart className="h-4 w-4 text-red-500" />}
+                          {index >= 4 && index < 7 && <Activity className="h-4 w-4 text-green-500" />}
+                          {index >= 7 && <Gamepad2 className="h-4 w-4 text-purple-500" />}
+                          <span className="text-sm font-medium text-gray-700">{type}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant={count > 0 ? "default" : "secondary"} 
+                            className={`text-xs ${count > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}
+                          >
+                            {count}x realizado{count !== 1 ? 's' : ''}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+                {Object.values(treatmentCounts).every(count => count === 0) && (
+                  <div className="text-center mt-4 p-4 bg-gray-50 rounded-lg">
+                    <Puzzle className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-600 text-sm">Nenhum atendimento registrado ainda</p>
+                    <p className="text-gray-500 text-xs">Os tipos de atendimento serão contabilizados conforme as sessões</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
