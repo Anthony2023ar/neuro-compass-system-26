@@ -37,7 +37,7 @@ const AdminLogin = () => {
     setIsLoading(true);
     
     try {
-      const success = await login(formData.username, 'admin', formData.password);
+      const success = await login(formData.username, formData.password);
       
       if (success) {
         showSuccess('Login administrativo realizado com sucesso!');

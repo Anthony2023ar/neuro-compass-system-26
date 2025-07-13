@@ -1,5 +1,4 @@
-
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -12,31 +11,29 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children, 
   requiredUserType 
 }) => {
-  const { isAuthenticated, userType, hasValidSession, refreshSession } = useAuth();
+  const { profile, loading } = useAuth();
 
-  useEffect(() => {
-    // Verifica sessão ao acessar rota protegida
-    if (!isAuthenticated) {
-      refreshSession();
-    }
-  }, [isAuthenticated, refreshSession]);
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
-  // Verifica se há sessão válida
-  if (!hasValidSession()) {
+  // Se não há perfil, redirecionar para home
+  if (!profile) {
     return <Navigate to="/" replace />;
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
-
-  if (requiredUserType && userType !== requiredUserType) {
+  // Se há um tipo específico requerido e não coincide
+  if (requiredUserType && profile.user_type !== requiredUserType) {
     // Redireciona para dashboard apropriado se o usuário está logado mas no tipo errado
-    if (userType === 'patient') {
+    if (profile.user_type === 'patient') {
       return <Navigate to="/patient-dashboard" replace />;
-    } else if (userType === 'professional') {
+    } else if (profile.user_type === 'professional') {
       return <Navigate to="/professional-dashboard" replace />;
-    } else if (userType === 'admin') {
+    } else if (profile.user_type === 'admin') {
       return <Navigate to="/admin-dashboard" replace />;
     }
     return <Navigate to="/" replace />;

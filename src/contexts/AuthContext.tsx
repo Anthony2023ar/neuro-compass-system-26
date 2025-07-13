@@ -1,238 +1,307 @@
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { User } from '@supabase/supabase-js';
+import { useToast } from '@/hooks/use-toast';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-
-export interface User {
+interface Profile {
   id: string;
-  fullName: string;
+  full_name: string;
   cpf: string;
-  type: 'patient' | 'professional' | 'admin';
-  birthDate?: string;
-  age?: number;
-  phone1?: string;
-  phone2?: string;
-  fatherName?: string;
-  motherName?: string;
-  course?: string;
-  password?: string;
-  approved?: boolean;
-  sessionId?: string;
+  user_type: 'patient' | 'professional' | 'admin';
+  phone?: string;
+  birth_date?: string;
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (identifier: string, type: 'patient' | 'professional' | 'admin', password?: string) => Promise<boolean>;
-  logout: () => void;
-  isAuthenticated: boolean;
-  userType: 'patient' | 'professional' | 'admin' | null;
-  hasValidSession: () => boolean;
-  refreshSession: () => void;
+  profile: Profile | null;
+  loading: boolean;
+  login: (cpf: string, password?: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+  register: (userData: any) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Verifica se há uma sessão válida ao inicializar
-    refreshSession();
-  }, []);
+    // Verificar sessão atual
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        loadProfile(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    });
 
-  const generateSessionId = (): string => {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2);
-  };
-
-  const refreshSession = () => {
-    try {
-      const savedUser = localStorage.getItem('currentUser');
-      const sessionTimestamp = localStorage.getItem('sessionTimestamp');
-      
-      if (savedUser && sessionTimestamp) {
-        const currentTime = Date.now();
-        const sessionTime = parseInt(sessionTimestamp);
-        const sessionDuration = 24 * 60 * 60 * 1000; // 24 horas
-        
-        if (currentTime - sessionTime < sessionDuration) {
-          const userData = JSON.parse(savedUser);
-          setUser(userData);
+    // Escutar mudanças de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          await loadProfile(session.user.id);
         } else {
-          // Sessão expirada
-          localStorage.removeItem('currentUser');
-          localStorage.removeItem('sessionTimestamp');
-          localStorage.removeItem('adminSession');
+          setProfile(null);
+          setLoading(false);
         }
       }
-    } catch (error) {
-      console.error('Erro ao verificar sessão:', error);
-      logout();
-    }
-  };
+    );
 
-  const hasValidSession = (): boolean => {
-    const savedUser = localStorage.getItem('currentUser');
-    const sessionTimestamp = localStorage.getItem('sessionTimestamp');
-    const adminSession = localStorage.getItem('adminSession');
-    
-    if (adminSession === 'true') return true;
-    
-    if (savedUser && sessionTimestamp) {
-      const currentTime = Date.now();
-      const sessionTime = parseInt(sessionTimestamp);
-      const sessionDuration = 24 * 60 * 60 * 1000; // 24 horas
-      
-      return currentTime - sessionTime < sessionDuration;
-    }
-    
-    return false;
-  };
+    return () => subscription.unsubscribe();
+  }, []);
 
-  const login = async (identifier: string, type: 'patient' | 'professional' | 'admin', password?: string): Promise<boolean> => {
+  const loadProfile = async (userId: string) => {
     try {
-      // Login administrativo
-      if (type === 'admin') {
-        if (identifier === 'irisaves' && password === 'iris123Aa') {
-          const adminUser: User = {
-            id: 'admin-001',
-            fullName: 'Administrador',
-            cpf: '000.000.000-00',
-            type: 'admin',
-            sessionId: generateSessionId()
-          };
-          
-          setUser(adminUser);
-          localStorage.setItem('currentUser', JSON.stringify(adminUser));
-          localStorage.setItem('sessionTimestamp', Date.now().toString());
-          localStorage.setItem('adminSession', 'true');
-          return true;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Erro ao carregar perfil:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao carregar dados do perfil",
+          variant: "destructive",
+        });
+      } else {
+        setProfile(data as Profile);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar perfil:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const login = async (cpf: string, password?: string): Promise<boolean> => {
+    try {
+      setLoading(true);
+
+      // Para pacientes, apenas CPF
+      if (!password) {
+        // Buscar usuário por CPF
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('cpf', cpf)
+          .eq('user_type', 'patient')
+          .single();
+
+        if (profileError || !profileData) {
+          toast({
+            title: "Erro",
+            description: "Paciente não encontrado. Verifique o CPF.",
+            variant: "destructive",
+          });
+          return false;
         }
+
+        // Simular login sem senha para paciente
+        setProfile(profileData as Profile);
+        setUser({ id: profileData.id } as User);
+        
+        toast({
+          title: "Sucesso!",
+          description: `Bem-vindo, ${profileData.full_name}!`,
+        });
+        return true;
+      }
+
+      // Para profissionais e admins, verificar senha
+      const { data: professionalData, error: professionalError } = await supabase
+        .from('professionals')
+        .select('*, profiles(*)')
+        .eq('profiles.cpf', cpf)
+        .eq('password', password)
+        .single();
+
+      if (professionalError || !professionalData) {
+        toast({
+          title: "Erro",
+          description: "CPF ou senha incorretos.",
+          variant: "destructive",
+        });
         return false;
       }
 
-      if (type === 'patient') {
-        // Para pacientes, busca por CPF ou nome
-        const patients = JSON.parse(localStorage.getItem('patients') || '[]');
-        const patient = patients.find((p: any) => 
-          p.cpf === identifier || p.fullName.toLowerCase().includes(identifier.toLowerCase())
-        );
-        
-        if (patient) {
-          // SEGURANÇA: Criar dados limpos sem informações sensíveis
-          const cleanUserData: User = {
-            id: patient.id,
-            fullName: patient.fullName,
-            cpf: patient.cpf.replace(/\d/g, '*'), // Mascarar CPF
-            type: 'patient',
-            birthDate: patient.birthDate,
-            age: patient.age,
-            phone1: patient.phone1 ? patient.phone1.replace(/\d{4}$/, '****') : '', // Mascarar telefone
-            phone2: patient.phone2 ? patient.phone2.replace(/\d{4}$/, '****') : '',
-            fatherName: patient.fatherName,
-            motherName: patient.motherName,
-            sessionId: generateSessionId()
-          };
-          
-          setUser(cleanUserData);
-          
-          // SEGURANÇA: Salvar dados limpos sem informações sensíveis completas
-          const sessionData = {
-            ...cleanUserData,
-            sessionStart: Date.now()
-          };
-          
-          localStorage.setItem('currentUser', JSON.stringify(sessionData));
-          localStorage.setItem('sessionTimestamp', Date.now().toString());
-          return true;
-        }
-      } else {
-        // Para profissionais, verifica CPF, senha e aprovação
-        if (!password) return false;
-        
-        const professionals = JSON.parse(localStorage.getItem('professionals') || '[]');
-        const professional = professionals.find((p: any) => 
-          p.cpf === identifier && p.password === password && p.approved === true
-        );
-        
-        if (professional) {
-          // SEGURANÇA: Criar dados limpos sem senha e informações sensíveis
-          const cleanUserData: User = {
-            id: professional.id,
-            fullName: professional.fullName,
-            cpf: professional.cpf.replace(/\d{5}$/g, '*****'), // Mascarar parte do CPF
-            type: 'professional',
-            course: professional.course,
-            phone1: professional.phone ? professional.phone.replace(/\d{4}$/, '****') : '',
-            approved: professional.approved,
-            sessionId: generateSessionId()
-            // IMPORTANTE: Nunca salvar senha na sessão
-          };
-          
-          setUser(cleanUserData);
-          
-          // SEGURANÇA: Dados da sessão sem informações sensíveis
-          const sessionData = {
-            ...cleanUserData,
-            sessionStart: Date.now(),
-            lastActivity: Date.now()
-          };
-          
-          localStorage.setItem('currentUser', JSON.stringify(sessionData));
-          localStorage.setItem('sessionTimestamp', Date.now().toString());
-          return true;
-        }
+      if (!professionalData.approved && professionalData.profiles.user_type === 'professional') {
+        toast({
+          title: "Acesso Negado",
+          description: "Sua conta ainda não foi aprovada pelo administrador.",
+          variant: "destructive",
+        });
+        return false;
       }
+
+      setProfile(professionalData.profiles as Profile);
+      setUser({ id: professionalData.profiles.id } as User);
       
-      return false;
+      toast({
+        title: "Sucesso!",
+        description: `Bem-vindo, ${professionalData.profiles.full_name}!`,
+      });
+      return true;
+
     } catch (error) {
       console.error('Erro no login:', error);
-      return false;
-    }
-  };
-
-  const logout = () => {
-    setUser(null);
-    // SEGURANÇA: Limpar todos os dados da sessão
-    localStorage.removeItem('currentUser');
-    localStorage.removeItem('sessionTimestamp');
-    localStorage.removeItem('adminSession');
-    
-    // SEGURANÇA: Limpar dados temporários do cache do navegador
-    if ('caches' in window) {
-      caches.keys().then(names => {
-        names.forEach(name => {
-          if (name.includes('neuropsicopedagogia')) {
-            caches.delete(name);
-          }
-        });
+      toast({
+        title: "Erro",
+        description: "Erro interno. Tente novamente.",
+        variant: "destructive",
       });
-    }
-    
-    // SEGURANÇA: Invalidar histórico de formulários
-    if (window.history?.replaceState) {
-      window.history.replaceState(null, '', window.location.pathname);
+      return false;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const value = {
-    user,
-    login,
-    logout,
-    isAuthenticated: !!user,
-    userType: user?.type || null,
-    hasValidSession,
-    refreshSession
+  const register = async (userData: any): Promise<boolean> => {
+    try {
+      setLoading(true);
+
+      // Verificar se CPF já existe
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('cpf')
+        .eq('cpf', userData.cpf)
+        .single();
+
+      if (existingProfile) {
+        toast({
+          title: "Erro",
+          description: "CPF já cadastrado no sistema.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Criar UUID único para o usuário
+      const userId = crypto.randomUUID();
+
+      // Inserir na tabela profiles
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          full_name: userData.full_name,
+          cpf: userData.cpf,
+          phone: userData.phone,
+          user_type: userData.user_type,
+          birth_date: userData.birth_date,
+        });
+
+      if (profileError) {
+        console.error('Erro ao criar perfil:', profileError);
+        toast({
+          title: "Erro",
+          description: "Erro ao criar perfil.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Se for profissional, inserir na tabela professionals
+      if (userData.user_type === 'professional') {
+        const { error: professionalError } = await supabase
+          .from('professionals')
+          .insert({
+            id: userId,
+            course: userData.course,
+            specialties: userData.specialties,
+            password: userData.password,
+            approved: false,
+          });
+
+        if (professionalError) {
+          console.error('Erro ao criar profissional:', professionalError);
+          toast({
+            title: "Erro",
+            description: "Erro ao criar dados profissionais.",
+            variant: "destructive",
+          });
+          return false;
+        }
+
+        toast({
+          title: "Cadastro realizado!",
+          description: "Aguarde a aprovação do administrador para fazer login.",
+        });
+      } else if (userData.user_type === 'patient') {
+        // Se for paciente, inserir na tabela patients
+        const { error: patientError } = await supabase
+          .from('patients')
+          .insert({
+            id: userId,
+            father_name: userData.father_name,
+            mother_name: userData.mother_name,
+          });
+
+        if (patientError) {
+          console.error('Erro ao criar paciente:', patientError);
+          toast({
+            title: "Erro",
+            description: "Erro ao criar dados do paciente.",
+            variant: "destructive",
+          });
+          return false;
+        }
+
+        toast({
+          title: "Cadastro realizado!",
+          description: "Agora você pode fazer login com seu CPF.",
+        });
+      }
+
+      return true;
+
+    } catch (error) {
+      console.error('Erro no registro:', error);
+      toast({
+        title: "Erro",
+        description: "Erro interno. Tente novamente.",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    setUser(null);
+    setProfile(null);
+    toast({
+      title: "Logout realizado",
+      description: "Até logo!",
+    });
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{
+      user,
+      profile,
+      loading,
+      login,
+      logout,
+      register,
+    }}>
       {children}
     </AuthContext.Provider>
   );
-};
+}
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-};
+}

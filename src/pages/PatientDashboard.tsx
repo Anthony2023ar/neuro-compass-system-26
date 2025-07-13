@@ -32,7 +32,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const { toast } = useToast();
   const [patientData, setPatientData] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
@@ -157,7 +157,7 @@ const PatientDashboard = () => {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-800">Área do Paciente</h1>
-                <p className="text-sm text-gray-600">Olá, {user.fullName}</p>
+                <p className="text-sm text-gray-600">Olá, {profile?.full_name}</p>
               </div>
             </div>
             <Button onClick={handleLogout} variant="outline" size="sm">

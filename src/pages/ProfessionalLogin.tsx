@@ -36,7 +36,7 @@ const ProfessionalLogin = () => {
     setIsLoading(true);
     
     try {
-      const success = await login(formData.cpf, 'professional', formData.password);
+      const success = await login(formData.cpf, formData.password);
       
       if (success) {
         // SEGURANÇA: Limpar dados sensíveis do formulário imediatamente
